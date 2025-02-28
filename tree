@@ -1,0 +1,100 @@
+#!/bin/bash
+# tree.sh - Print the folder tree structure for any directory,
+# excluding folders specified with the -r option.
+
+# Array to store excluded folder names.
+EXCLUDES=()
+
+# Parse arguments
+TARGET=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -r)
+            shift
+            if [[ -z "$1" ]]; then
+                echo "Error: -r option requires a folder name."
+                exit 1
+            fi
+            EXCLUDES+=("$(realpath -m "$1")")  # Convert to absolute path
+            ;;
+        *)
+            if [[ -z "$TARGET" ]]; then
+                TARGET="$(realpath -m "$1")"  # Convert target directory to absolute path
+            else
+                echo "Error: Multiple target directories provided."
+                exit 1
+            fi
+            ;;
+    esac
+    shift
+done
+
+# Ensure a target directory is provided
+if [[ -z "$TARGET" ]]; then
+    echo "Usage: $0 [-r folderToExclude]... <directory>"
+    exit 1
+fi
+
+if [[ ! -d "$TARGET" ]]; then
+    echo "Error: '$TARGET' is not a valid directory."
+    exit 1
+fi
+
+# Function to check if a folder should be excluded.
+should_exclude() {
+    local folder="$(realpath -m "$1")"
+    for ex in "${EXCLUDES[@]}"; do
+        if [[ "$folder" == "$ex" ]]; then
+            return 0  # Exclude
+        fi
+    done
+    return 1  # Do not exclude
+}
+
+# Recursive function to print the tree
+print_tree() {
+    local dir="$1"
+    local prefix="$2"
+    
+    local entries=( "$dir"/.* "$dir"/* )
+    local filtered=()
+    for entry in "${entries[@]}"; do
+        base=$(basename "$entry")
+        if [[ "$base" == "." || "$base" == ".." ]]; then
+            continue
+        fi
+        if [[ -e "$entry" ]]; then
+            filtered+=("$entry")
+        fi
+    done
+
+    local count=${#filtered[@]}
+    local i=0
+    for entry in "${filtered[@]}"; do
+        base=$(basename "$entry")
+        if [[ -d "$entry" ]] && should_exclude "$entry"; then
+            continue
+        fi
+        
+        i=$((i+1))
+        if [[ "$i" -eq "$count" ]]; then
+            connector="└── "
+            new_prefix="${prefix}    "
+        else
+            connector="├── "
+            new_prefix="${prefix}│   "
+        fi
+
+        if [[ -d "$entry" ]]; then
+            echo "${prefix}${connector}${base}/"
+            print_tree "$entry" "$new_prefix"
+        else
+            echo "${prefix}${connector}${base}"
+        fi
+    done
+}
+
+# Print the root directory name and invoke the recursive function
+echo "$(basename "$TARGET")/"
+print_tree "$TARGET" ""
+

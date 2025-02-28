@@ -1,0 +1,57 @@
+#!/bin/bash
+
+# Function to show usage
+usage() {
+    echo "Usage: map.sh <src> -ext <extension> [-ext <extension> ...]"
+    exit 1
+}
+
+# Check if at least two arguments are provided
+if [ "$#" -lt 3 ]; then
+    usage
+fi
+
+# Parse arguments
+SRC=$1
+shift
+EXTENSIONS=()
+
+while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+        -ext)
+            shift
+            EXTENSIONS+=("$1")
+            ;;
+        *)
+            usage
+            ;;
+    esac
+    shift
+done
+
+# Validate source directory
+if [ ! -d "$SRC" ]; then
+    echo "Error: Source directory does not exist."
+    exit 1
+fi
+
+# Output file
+OUTPUT_FILE="mapped_content.txt"
+echo "" > "$OUTPUT_FILE"
+
+# Find and save file contents
+for ext in "${EXTENSIONS[@]}"; do
+    find "$SRC" -type f -name "*$ext" | while read -r file; do
+        fullpath=$(realpath "$file")
+        file_ext="${ext#.}"  # Remove leading dot if present
+
+        echo "File: $fullpath" >> "$OUTPUT_FILE"
+        echo "----------------------" >> "$OUTPUT_FILE"
+        printf '```%s\n' "$file_ext" >> "$OUTPUT_FILE"
+        cat "$file" >> "$OUTPUT_FILE"
+        printf '\n```\n\n' >> "$OUTPUT_FILE"
+    done
+done
+
+echo "Mapping complete. Output saved to $OUTPUT_FILE"
+
